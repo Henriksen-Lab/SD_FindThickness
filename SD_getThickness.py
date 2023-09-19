@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename, askdirectory
 from PIL import Image, ImageTk
 import tkinter.simpledialog
+import pickle
+
 from UI_subclass import *
 from Convert_RGB_to_Wavelength import *
 
@@ -132,7 +134,7 @@ def main_window():
             def choose_file():
                 select_directory = askopenfilename(title="Choose the file")
                 self.cali_path_entry.entry.delete(0, 'end')
-                self.cali_path_entry.insert(0, select_directory)
+                self.cali_path_entry.entry.insert(0, select_directory)
             self.cali_path = ttk.Button(
                 self,
                 text="choose File",
@@ -166,8 +168,8 @@ def main_window():
             self.save_path_entry.grid(row=0, column=0, sticky='ew')
             def choose_folder():
                 select_directory = askdirectory(title="Choose the folder")
-                self.cali_path_entry.entry.delete(0, 'end')
-                self.cali_path_entry.insert(0, select_directory)
+                self.save_path_entry.entry.delete(0, 'end')
+                self.save_path_entry.entry.insert(0, select_directory)
             self.save_path = ttk.Button(
                 self,
                 text="choose Folder",
@@ -178,7 +180,7 @@ def main_window():
             self.filename_entry = EntryBoxH(self,'File name',initial_value='name me please',width=width-50,box_color=box_color_3)
             self.filename_entry.grid(row=1, column=0, sticky='nwe')
             def save_info():
-                pass
+                save_info_to_file()
             self.save_button = ttk.Button(
                 self,
                 text="Save file",
@@ -229,18 +231,16 @@ def main_window():
             item.delete(tag, 'end')
             item.insert(tag, value)
         path = img_list[0].dir_entry.entry.get()
-        name = (path.split("\\")[-1]).split("/")[-1]
+        name = (path.split("\\")[-1]).split("/")[-2] + '_' + (path.split("\\")[-1]).split("/")[-1]
         newname = 'SDthickness_'+ name.split('.')[0]
         set(save_list[0].filename_entry.entry,f'{newname}')
         for point in point_list:
             realvalue = point.realvalue_entry.entry.get()
             if realvalue != 'None':
                 if float(realvalue) == 0.0:
-                    if table_list[0].cali_path_entry.entry.get() == 'Please choose calibration file path':
-                        basepoint = float(point.wavelength_entry.entry.get())
-                    else:
+                    basepoint = float(point.wavelength_entry.entry.get())
+                    if table_list[0].cali_path_entry.entry.get() != 'Please choose calibration file path' or table_list[0].cali_path_entry.entry.get() != '':
                         calibration = True
-                        pass
         for point in point_list:
             if point.x_entry.entry.get()=='' or point.y_entry.entry.get()=='':
                 set(point.x_entry.entry,x)
@@ -252,10 +252,49 @@ def main_window():
                     if not calibration:
                         thickness = wavelength - basepoint
                     else:
-                        pass
+#                       try:
+                        path = table_list[0].cali_path_entry.entry.get()
+                        print(path)
+                        with open(path, 'rb') as f:
+                            cali_dict = pickle.load(f)
+                            print('Calibration loaded')
+                        popt = cali_dict['popt']
+                        sigma = cali_dict['sigma']
+                        def function(x,a,b,c):
+                            return a*x**2 + b*x +c
+                        thickness = function(wavelength,*popt) - function(basepoint,*popt)
+                        print(function(wavelength,*popt),basepoint)
+                        print('thickness = ', thickness)
+                        print('sigma = ', f'{sigma:.2f}', ' nm')
+#                       except:
+#                           print('Calibration failed to import')
                     set(point.estimate_entry.entry,f'{thickness}')
-                pass
-
+                break
+    def save_info_to_file():
+        dataToSave = {}
+        dataToSave.update({'file_path':img_list[0].dir_entry.entry.get()})
+        dataToSave.update({'Calib_path':table_list[0].cali_path_entry.entry.get()})
+        dataToSave.update({'Point_info':{}})
+        i = 0
+        for point in point_list:
+            if point.x_entry.entry.get()!='' and point.y_entry.entry.get()!='':
+                i += 1
+                data = {}
+                data.update({'x':point.x_entry.entry.get()})
+                data.update({'y':point.y_entry.entry.get()})
+                data.update({'rgb':point.rgb_entry.entry.get()})
+                data.update({'wavelength':point.wavelength_entry.entry.get()})
+                data.update({'estimate_t':point.estimate_entry.entry.get()})
+                data.update({'real_t':point.realvalue_entry.entry.get()})
+                point_name = 'P' + str(i)
+                dataToSave['Point_info'].update({point_name:data})
+        print(dataToSave)
+        folder = save_list[0].save_path_entry.entry.get()
+        name = save_list[0].filename_entry.entry.get()
+        file_path = os.path.join(folder,name)
+        with open(file_path,'wb') as f:
+            pickle.dump(dataToSave, f)
+        
     def initialize():
         # t = threading.Thread(target=background)
         # t.daemon = True
