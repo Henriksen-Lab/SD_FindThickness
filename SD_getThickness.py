@@ -4,14 +4,11 @@ Author: Shilling Du, 20230915
 import sys, os, time, threading
 from tkinter import *
 import tkinter as tk
-from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import askopenfilename, askdirectory
 from PIL import Image, ImageTk
 import tkinter.simpledialog
 from UI_subclass import *
-
-
-def background():
-        pass
+from Convert_RGB_to_Wavelength import *
 
 def main_window():
     # Window
@@ -24,6 +21,7 @@ def main_window():
     window.rowconfigure(0, weight=1)
     window.rowconfigure(1, weight=4)
 
+    img_list=[]
     class MsgFrame(tk.Frame):
         def __init__(self, frame, width, height, row, column, rowspan=1, columnspan=1):
             super().__init__(
@@ -34,6 +32,7 @@ def main_window():
                 highlightthickness=1.5,
                 bd=6
             )
+            img_list.append(self)
             self.grid(
                 row=row, column=column,
                 rowspan=rowspan, columnspan=columnspan,
@@ -95,9 +94,9 @@ def main_window():
             point_list.append(self)
             self.label = tk.Label(self,text=label,bg=box_color)
             self.label.grid(row=0,column=0)
-            self.x_entry = EntryBoxH(self, 'X=', initial_value='?',width=70,box_color = box_color_1)
+            self.x_entry = EntryBoxH(self, 'X=', initial_value='',width=70,box_color = box_color_1)
             self.x_entry.grid(row=0, column=1, sticky='ew')
-            self.y_entry = EntryBoxH(self, 'Y=', initial_value='?',width=70,box_color = box_color_1)
+            self.y_entry = EntryBoxH(self, 'Y=', initial_value='',width=70,box_color = box_color_1)
             self.y_entry.grid(row=1, column=1, sticky='ew')
             self.rgb_entry = EntryBoxH(self, 'RGB=', initial_value='0,0,0',width=140)
             self.rgb_entry.grid(row=0, column=2, sticky='ew')
@@ -117,20 +116,16 @@ def main_window():
     class InfoFrame(tk.Frame):
         def __init__(self, frame, width, height, row, column, rowspan=1, columnspan=1):
             super().__init__(
-                frame, width=width, height=height,
+                frame,
                 bg=box_color,
-                highlightbackground=border_color,
-                highlightcolor=highlight_border_color,
-                highlightthickness=1.5,
-                bd=6
             )
             table_list.append(self)
             self.grid(
                 row=row, column=column,
                 rowspan=rowspan, columnspan=columnspan,
-                ipadx=frame_ipadx, ipady=frame_ipady,
-                padx=frame_padx, pady=frame_pady,
-                sticky='nw'
+                ipadx=0, ipady=0,
+                padx=0, pady=0,
+                sticky='news'
             )
             self.cali_path_entry = EntryBox(self, 'Calibration file path', initial_value='Please choose calibration file path',width=width,box_color=box_color_3)
             self.cali_path_entry.grid(row=0, column=0, sticky='ew')
@@ -147,6 +142,78 @@ def main_window():
             self.cali_path.grid(row=0, column=0, sticky='ne')
             add_point()
     
+    save_list = []
+    class SaveFrame(tk.Frame):
+        def __init__(self, frame, width, height, row, column, rowspan=1, columnspan=1):
+            super().__init__(
+                frame, width=width, height=height,
+                bg=box_color,
+                highlightbackground=border_color,
+                highlightcolor=highlight_border_color,
+                highlightthickness=1.5,
+                bd=6
+            )
+            save_list.append(self)
+            self.grid(
+                row=row, column=column,
+                rowspan=rowspan, columnspan=columnspan,
+                ipadx=frame_ipadx, ipady=frame_ipady,
+                padx=frame_padx, pady=frame_pady,
+                sticky='new'
+            )
+            
+            self.save_path_entry = EntryBox(self, 'Save file folder path', initial_value='Please choose folder location',width=width-50,box_color=box_color_3)
+            self.save_path_entry.grid(row=0, column=0, sticky='ew')
+            def choose_folder():
+                select_directory = askdirectory(title="Choose the folder")
+                self.cali_path_entry.entry.delete(0, 'end')
+                self.cali_path_entry.insert(0, select_directory)
+            self.save_path = ttk.Button(
+                self,
+                text="choose Folder",
+                command=choose_folder,
+                padding=4
+            )
+            self.save_path.grid(row=0, column=0, sticky='ne')
+            self.filename_entry = EntryBoxH(self,'File name',initial_value='name me please',width=width-50,box_color=box_color_3)
+            self.filename_entry.grid(row=1, column=0, sticky='nwe')
+            def save_info():
+                pass
+            self.save_button = ttk.Button(
+                self,
+                text="Save file",
+                command=save_info,
+                padding=4
+            )
+            self.save_button.grid(row=1, column=0, sticky='ne')
+
+    class ScrollableInfoFrame(tk.Frame):
+            def __init__(self, master, width, height):
+                tk.Frame.__init__(self, master, width=width, height=height)
+                self.canvas = tk.Canvas(self, borderwidth=0, background="#ffffff", highlightthickness=0)
+                self.frame = tk.Frame(self.canvas, background="#ffffff")
+                self.hsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+                self.canvas.configure(xscrollcommand=self.hsb.set)
+
+                self.hsb.pack(side=RIGHT, fill="y")
+                self.canvas.pack(side=tk.RIGHT, fill="both", expand=True)
+                self.canvas.create_window((16, 8), window=self.frame, anchor="nw", tags="self.frame")
+
+                self.frame.bind("<Configure>", self.onFrameConfigure)
+                self.pack_propagate(False)
+
+                self.info_frame = StyleFrame(
+                    self.frame,
+                    label='Info',
+                    width=width,
+                    height=height
+                )
+                self.info_frame.pack(side=tk.LEFT, expand=True)
+
+            def onFrameConfigure(self, event):
+                '''Reset the scroll region to encompass the inner frame'''
+                self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
     global i
     i = 1
     def add_point():
@@ -154,47 +221,68 @@ def main_window():
         label = 'P' + str(i)        
         SingleLine(table_list[0],label=label,row=i,column=0)
         i += 1 
-        
+
     def update_info(x,y,r,g,b):
+        basepoint = 0.0
+        calibration = False
         def set(item,value,tag=0):
             item.delete(tag, 'end')
             item.insert(tag, value)
+        path = img_list[0].dir_entry.entry.get()
+        name = (path.split("\\")[-1]).split("/")[-1]
+        newname = 'SDthickness_'+ name.split('.')[0]
+        set(save_list[0].filename_entry.entry,f'{newname}')
         for point in point_list:
-            if point.x_entry.entry.get()=='?' or point.y_entry.entry.get()=='?':
+            realvalue = point.realvalue_entry.entry.get()
+            if realvalue != 'None':
+                if float(realvalue) == 0.0:
+                    if table_list[0].cali_path_entry.entry.get() == 'Please choose calibration file path':
+                        basepoint = float(point.wavelength_entry.entry.get())
+                    else:
+                        calibration = True
+                        pass
+        for point in point_list:
+            if point.x_entry.entry.get()=='' or point.y_entry.entry.get()=='':
                 set(point.x_entry.entry,x)
                 set(point.y_entry.entry,y)
                 set(point.rgb_entry.entry,f'{r},{g},{b}')
+                wavelength = rgb2wavelength(r,g,b)
+                set(point.wavelength_entry.entry,f'{wavelength}')
+                if basepoint != 0.0:
+                    if not calibration:
+                        thickness = wavelength - basepoint
+                    else:
+                        pass
+                    set(point.estimate_entry.entry,f'{thickness}')
                 pass
 
-
-    def reply_handler():
-        global reply
-        pass
-        window.after(50, reply_handler)
-
     def initialize():
-        t = threading.Thread(target=background)
-        t.daemon = True
-        t.start()
-
+        # t = threading.Thread(target=background)
+        # t.daemon = True
+        # t.start()
         msg = MsgFrame(
             window,
             width=900,
             height=sizey-50,
-            column=0, row=0
+            column=0, row=0,
+            rowspan=2
         )
-        table = InfoFrame(
-            window,
+        scrollable_frame = ScrollableInfoFrame(window,width=sizex-960,height=int(sizey/5)*4 - 20)
+        scrollable_frame.grid(column=1, row=0)
+        info_frame = scrollable_frame.info_frame
+        info = InfoFrame(
+            info_frame,
             width=sizex-1000,
-            height=sizey-50,
-            column=1, row=0
+            height=int(sizey/5)*4 - 20,
+            column=0, row=1
         )
-
-        window.after(50, reply_handler)
+        save = SaveFrame(
+            window,
+            width=sizex-960,
+            height=int(sizey/5)-20,
+            column=1, row=1,
+        )
     window.after(50, initialize)
     window.mainloop()
-
-def getRGB(img,x,y):
-    pass
 
 main_window()
