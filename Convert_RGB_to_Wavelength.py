@@ -1,3 +1,7 @@
+'''
+base on this website:
+https://stackoverflow.com/questions/36618882/methodology-to-convert-rgb-to-wavelength
+'''
 def rgb2hsv(r, g, b):
     MAX_PIXEL_VALUE = 255.0
     r = r / MAX_PIXEL_VALUE
